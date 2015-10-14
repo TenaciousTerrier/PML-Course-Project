@@ -1,0 +1,142 @@
+---
+title: 'Course Project: Practical Machine Learning'
+author: "Thomas Hepner"
+date: "October 14, 2015"
+output: html_document
+---
+
+### Set Working Directory and Load Packages
+```{r results = "hide"}
+rm(list = ls())
+setwd('C:/Users/thep3/Desktop/Coursera/Practical Machine Learning/Project/PML-Course-Project')
+
+library(data.table)
+library(caret)
+library(foreach)
+library(doParallel)
+library(randomForest)
+library(gbm)
+library(plyr)
+```
+
+### Load Training and Test Datasets and Massage Data (Remove NAs, #DIV/0 errors, etc.)
+```{r}
+train = read.table("pml-training.txt", header = TRUE, sep = ",", na.strings = c("NA", "#DIV/0", "", "<NA>", "#DIV/0!"))
+test = read.table("pml-testing.txt", header = TRUE, sep = ",", na.strings = c("NA", "#DIV/0", "", "<NA>", "#DIV/0!"))
+```
+
+### Preprocess data
+#### 1. Remove Variables with High NA Percent
+```{r}
+source('percentNA.R')
+colnames = names(train)
+emptycols = sapply(train, percentNA)
+emptycols = emptycols[which(emptycols > 0.5)]
+train = train[,!names(train) %in% names(emptycols)]
+test = test[,!names(test) %in% names(emptycols)]
+```
+
+#### 2. Remove cvtd_timestamp variable
+```{r}
+train = train[, -c(1, 5)]
+test = test[, -c(1, 5)]
+```
+
+#### 3. Normalize data by user_name
+```{r}
+train[, -c(1:6, 60)] = sapply(train[, -c(1:6, 60)], as.numeric)
+test[, -c(1:6, 60)] = sapply(test[, -c(1:6, 60)], as.numeric)
+
+users = sort(unique(train$user_name))
+preObj = preProcess(train[, -c(1:6, 60)], method = c("center", "scale"))
+
+train[, -c(1:6, 60)] = train[, -c(1:6, 60)] * preObj$mean / preObj$std
+test[, -c(1:6, 60)] = test[, -c(1:6, 60)] * preObj$mean / preObj$std
+```
+
+### Create 10-fold CV with cases split equally based on user_name
+```{r}
+cvid = createFolds(y = train$classe, k = 10, list = TRUE, returnTrain = TRUE)
+```
+
+### Build Machine Learning Models: Random Forest and Gradient Boosting Machine
+```{r results = "hide"}
+set.seed(20)
+
+rf = NULL
+gbm = NULL
+gbm = train(classe ~., data = train[-cvid$Fold01, ], method = "gbm")
+
+cl = makeCluster(4)
+registerDoParallel(cl)
+  rf = foreach(ntree = rep(50, 4), .combine = combine, multicombine = TRUE, .packages = 'caret') %dopar%
+    train(classe ~., data = train[-cvid$Fold01, ], method = "rf", ntree = ntree, importance = TRUE)
+stopCluster(cl)
+stopImplicitCluster()
+rm(list = "cl")
+```
+
+### Build Stacked Random Forest Model with Predictions from Prior Two Models
+```{r results = "hide"}
+preds_train = cbind(predict(rf, train), predict(gbm, train))
+preds_test = cbind(predict(rf, test), predict(gbm, test))
+
+train2 = cbind(train, preds_train)
+test2 = cbind(test, preds_test)
+
+rf_stack = NULL
+cl = makeCluster(4)
+registerDoParallel(cl)
+  rf_stack = foreach(ntree = rep(50, 4), .combine = combine, multicombine = TRUE, .packages = 'caret') %dopar%
+    train(classe ~., data = train2[-cvid$Fold01, ], method = "rf", ntree = ntree, importance = TRUE)
+stopCluster(cl)
+```
+
+### Build Predictions for Each of the Three Models
+```{r}
+preds_rf = predict(rf, test)
+preds_gbm = predict(gbm, test)
+preds_stack = predict(rf_stack, test2)
+```
+
+### Examine Percentage Accuracy Each of the Three Models
+```{r}
+# Random Forest Model
+print(rf)
+
+# GBM Model
+print(gbm)
+
+# Stacked Model
+print(rf_stack)
+```
+```
+Each of the three models has above 97% accuracy. The stacked model has 99.99% accuracy on the training data!
+```
+
+### Examine Out of Sample Error Estimate for Each Model
+```{r}
+
+# Random Forest Model
+rf$finalModel
+
+# Stacked Random Forest
+rf_stack$finalModel
+
+```
+
+```
+Stacked random forest model has 0% estimated out of sample error rate - incredible!
+```
+
+
+```
+Based on these results, we expect the stacked model to perform the best, but only marginally better given that all 3 models have accuracy above 97% on the training data.
+
+```
+
+# Results on 20 test cases
+```
+The stacked model accurately predicted 20 out of 20 test cases - 100% accuracy! Machine learning is an incredible, amazing tool!
+```
+
