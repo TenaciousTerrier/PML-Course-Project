@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="en-us">
+  <head>
+    <meta charset="UTF-8">
+    <title>Pml-course-project by TenaciousTerrier</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" type="text/css" href="stylesheets/normalize.css" media="screen">
+    <link href='https://fonts.googleapis.com/css?family=Open+Sans:400,700' rel='stylesheet' type='text/css'>
+    <link rel="stylesheet" type="text/css" href="stylesheets/stylesheet.css" media="screen">
+    <link rel="stylesheet" type="text/css" href="stylesheets/github-light.css" media="screen">
+  </head>
+  <body>
+    <section class="page-header">
+      <h1 class="project-name">Pml-course-project</h1>
+      <h2 class="project-tagline"></h2>
+      <a href="https://github.com/TenaciousTerrier/PML-Course-Project" class="btn">View on GitHub</a>
+      <a href="https://github.com/TenaciousTerrier/PML-Course-Project/zipball/master" class="btn">Download .zip</a>
+      <a href="https://github.com/TenaciousTerrier/PML-Course-Project/tarball/master" class="btn">Download .tar.gz</a>
+    </section>
+
+    <section class="main-content">
+      <p>&lt;!DOCTYPE html&gt;</p>
+
+<p></p>
+
+<p></p>
+
+<p>
+
+</p>
+
+<p></p>
+
+<p></p>
+
+<p></p>Course Project: Practical Machine Learning
+
+
+
+<p>
+</p>
+
+
+
+
+
+
+
+code{white-space: pre;}
+
+<p></p>
+
+
+
+
+  pre:not([class]) {
+    background-color: white;
+  }
+
+
+
+
+<p></p>
+
+<p></p>
+
+
+.main-container {
+  max-width: 940px;
+  margin-left: auto;
+  margin-right: auto;
+}
+code {
+  color: inherit;
+  background-color: rgba(0, 0, 0, 0.04);
+}
+img { 
+  max-width:100%; 
+  height: auto; 
+}
+
+
+<div>
+
+
+<div id="header">
+<h1>
+<a id="course-project-practical-machine-learning" class="anchor" href="#course-project-practical-machine-learning" aria-hidden="true"><span class="octicon octicon-link"></span></a>Course Project: Practical Machine Learning</h1>
+<h4>
+<a id="thomas-hepner" class="anchor" href="#thomas-hepner" aria-hidden="true"><span class="octicon octicon-link"></span></a><em>Thomas Hepner</em>
+</h4>
+<h4>
+<a id="october-14-2015" class="anchor" href="#october-14-2015" aria-hidden="true"><span class="octicon octicon-link"></span></a><em>October 14, 2015</em>
+</h4>
+</div>
+
+<div id="set-working-directory-and-load-packages">
+<h3>
+<a id="set-working-directory-and-load-packages" class="anchor" href="#set-working-directory-and-load-packages" aria-hidden="true"><span class="octicon octicon-link"></span></a>Set Working Directory and Load Packages</h3>
+<pre><code>rm(list = ls())
+setwd('C:/Users/thep3/Desktop/Coursera/Practical Machine Learning/Project')
+
+library(data.table)
+library(caret)</code></pre>
+<pre><code>## Loading required package: lattice
+## Loading required package: ggplot2</code></pre>
+<pre><code>library(foreach)
+library(doParallel)</code></pre>
+<pre><code>## Loading required package: iterators
+## Loading required package: parallel</code></pre>
+<pre><code>library(randomForest)</code></pre>
+<pre><code>## randomForest 4.6-12
+## Type rfNews() to see new features/changes/bug fixes.</code></pre>
+<pre><code>library(gbm)</code></pre>
+<pre><code>## Loading required package: survival
+## 
+## Attaching package: 'survival'
+## 
+## The following object is masked from 'package:caret':
+## 
+##     cluster
+## 
+## Loading required package: splines
+## Loaded gbm 2.1.1</code></pre>
+<pre><code>library(plyr)</code></pre>
+</div>
+
+<div id="load-training-and-test-datasets-and-massage-data-remove-nas-div0-errors-etc.">
+<h3>
+<a id="load-training-and-test-datasets-and-massage-data-remove-nas-div0-errors-etc" class="anchor" href="#load-training-and-test-datasets-and-massage-data-remove-nas-div0-errors-etc" aria-hidden="true"><span class="octicon octicon-link"></span></a>Load Training and Test Datasets and Massage Data (Remove NAs, #DIV/0 errors, etc.)</h3>
+<pre><code>train = read.table("pml-training.txt", header = TRUE, sep = ",", na.strings = c("NA", "#DIV/0", "", "&lt;NA&gt;", "#DIV/0!"))
+test = read.table("pml-testing.txt", header = TRUE, sep = ",", na.strings = c("NA", "#DIV/0", "", "&lt;NA&gt;", "#DIV/0!"))</code></pre>
+</div>
+
+<div id="preprocess-data">
+<h3>
+<a id="preprocess-data" class="anchor" href="#preprocess-data" aria-hidden="true"><span class="octicon octicon-link"></span></a>Preprocess data</h3>
+<div id="remove-variables-with-high-na-percent">
+<h4>
+<a id="1-remove-variables-with-high-na-percent" class="anchor" href="#1-remove-variables-with-high-na-percent" aria-hidden="true"><span class="octicon octicon-link"></span></a>1. Remove Variables with High NA Percent</h4>
+<pre><code>source('percentNA.R')
+colnames = names(train)
+emptycols = sapply(train, percentNA)
+emptycols = emptycols[which(emptycols &gt; 0.5)]
+train = train[,!names(train) %in% names(emptycols)]
+test = test[,!names(test) %in% names(emptycols)]</code></pre>
+</div>
+
+<div id="remove-cvtd_timestamp-variable">
+<h4>
+<a id="2-remove-cvtd_timestamp-variable" class="anchor" href="#2-remove-cvtd_timestamp-variable" aria-hidden="true"><span class="octicon octicon-link"></span></a>2. Remove cvtd_timestamp variable</h4>
+<pre><code>train = train[, -c(1, 5)]
+test = test[, -c(1, 5)]</code></pre>
+</div>
+
+<div id="normalize-data-by-user_name">
+<h4>
+<a id="3-normalize-data-by-user_name" class="anchor" href="#3-normalize-data-by-user_name" aria-hidden="true"><span class="octicon octicon-link"></span></a>3. Normalize data by user_name</h4>
+<pre><code>train[, -c(1:6, 60)] = sapply(train[, -c(1:6, 60)], as.numeric)
+test[, -c(1:6, 60)] = sapply(test[, -c(1:6, 60)], as.numeric)
+
+users = sort(unique(train$user_name))
+preObj = preProcess(train[, -c(1:6, 60)], method = c("center", "scale"))
+
+train[, -c(1:6, 60)] = train[, -c(1:6, 60)] * preObj$mean / preObj$std
+test[, -c(1:6, 60)] = test[, -c(1:6, 60)] * preObj$mean / preObj$std</code></pre>
+</div>
+
+<p></p>
+</div>
+
+<div id="create-10-fold-cv-with-cases-split-equally-based-on-user_name">
+<h3>
+<a id="create-10-fold-cv-with-cases-split-equally-based-on-user_name" class="anchor" href="#create-10-fold-cv-with-cases-split-equally-based-on-user_name" aria-hidden="true"><span class="octicon octicon-link"></span></a>Create 10-fold CV with cases split equally based on user_name</h3>
+<pre><code>cvid = createFolds(y = train$classe, k = 10, list = TRUE, returnTrain = TRUE)</code></pre>
+</div>
+
+<div id="build-machine-learning-models-random-forest-and-gradient-boosting-machine">
+<h3>
+<a id="build-machine-learning-models-random-forest-and-gradient-boosting-machine" class="anchor" href="#build-machine-learning-models-random-forest-and-gradient-boosting-machine" aria-hidden="true"><span class="octicon octicon-link"></span></a>Build Machine Learning Models: Random Forest and Gradient Boosting Machine</h3>
+<pre><code>set.seed(20)
+
+rf = NULL
+gbm = NULL
+gbm = train(classe ~., data = train[-cvid$Fold01, ], method = "gbm")
+
+cl = makeCluster(4)
+registerDoParallel(cl)
+  rf = foreach(ntree = rep(50, 4), .combine = combine, multicombine = TRUE, .packages = 'caret') %dopar%
+    train(classe ~., data = train[-cvid$Fold01, ], method = "rf", ntree = ntree, importance = TRUE)
+stopCluster(cl)
+stopImplicitCluster()
+rm(list = "cl")</code></pre>
+</div>
+
+<div id="build-stacked-random-forest-model-with-predictions-from-prior-two-models">
+<h3>
+<a id="build-stacked-random-forest-model-with-predictions-from-prior-two-models" class="anchor" href="#build-stacked-random-forest-model-with-predictions-from-prior-two-models" aria-hidden="true"><span class="octicon octicon-link"></span></a>Build Stacked Random Forest Model with Predictions from Prior Two Models</h3>
+<pre><code>preds_train = cbind(predict(rf, train), predict(gbm, train))
+preds_test = cbind(predict(rf, test), predict(gbm, test))
+
+train2 = cbind(train, preds_train)
+test2 = cbind(test, preds_test)
+
+rf_stack = NULL
+cl = makeCluster(4)
+registerDoParallel(cl)
+  rf_stack = foreach(ntree = rep(50, 4), .combine = combine, multicombine = TRUE, .packages = 'caret') %dopar%
+    train(classe ~., data = train2[-cvid$Fold01, ], method = "rf", ntree = ntree, importance = TRUE)
+stopCluster(cl)</code></pre>
+</div>
+
+<div id="build-predictions-for-each-of-the-three-models">
+<h3>
+<a id="build-predictions-for-each-of-the-three-models" class="anchor" href="#build-predictions-for-each-of-the-three-models" aria-hidden="true"><span class="octicon octicon-link"></span></a>Build Predictions for Each of the Three Models</h3>
+<pre><code>preds_rf = predict(rf, test)
+preds_gbm = predict(gbm, test)
+preds_stack = predict(rf_stack, test2)</code></pre>
+</div>
+
+<div id="examine-percentage-accuracy-each-of-the-three-models">
+<h3>
+<a id="examine-percentage-accuracy-each-of-the-three-models" class="anchor" href="#examine-percentage-accuracy-each-of-the-three-models" aria-hidden="true"><span class="octicon octicon-link"></span></a>Examine Percentage Accuracy Each of the Three Models</h3>
+<pre><code># Random Forest Model
+print(rf)</code></pre>
+<pre><code>## Random Forest 
+## 
+## 1962 samples
+##   57 predictor
+## 
+## No pre-processing
+## Resampling: Bootstrapped (25 reps) 
+## Summary of sample sizes: 1962, 1962, 1962, 1962, 1962, 1962, ... 
+## Resampling results across tuning parameters:
+## 
+##   mtry  RMSE      Rsquared   RMSE SD    Rsquared SD
+##    2    5.174359  0.6636866  0.7612137  0.04865488 
+##   31    4.342130  0.6851813  0.7574855  0.07742080 
+##   61    4.654724  0.6140211  0.8653698  0.10570515 
+## 
+## RMSE was used to select the optimal model using  the smallest value.
+## The final value used for the model was mtry = 31.</code></pre>
+<pre><code># GBM Model
+print(gbm)</code></pre>
+<pre><code>## Stochastic Gradient Boosting 
+## 
+## 1962 samples
+##   57 predictor
+## 
+## No pre-processing
+## Resampling: Bootstrapped (25 reps) 
+## Summary of sample sizes: 1962, 1962, 1962, 1962, 1962, 1962, ... 
+## Resampling results across tuning parameters:
+## 
+##   interaction.depth  n.trees  RMSE      Rsquared   RMSE SD    Rsquared SD
+##   1                   50      6.173190  0.3306437  0.7866480  0.09754866 
+##   1                  100      5.930899  0.3738646  0.7464571  0.08899763 
+##   1                  150      5.816248  0.3981711  0.7516763  0.09002939 
+##   2                   50      5.535364  0.4641006  0.8237573  0.11374880 
+##   2                  100      5.148614  0.5327173  0.7641924  0.09186329 
+##   2                  150      4.983842  0.5609462  0.7493017  0.08565780 
+##   3                   50      5.306474  0.5091942  0.7937175  0.09108131 
+##   3                  100      4.923264  0.5750494  0.7431734  0.07773525 
+##   3                  150      4.739791  0.6066576  0.7275233  0.06832794 
+## 
+## Tuning parameter 'shrinkage' was held constant at a value of 0.1
+## 
+## Tuning parameter 'n.minobsinnode' was held constant at a value of 10
+## RMSE was used to select the optimal model using  the smallest value.
+## The final values used for the model were n.trees = 150,
+##  interaction.depth = 3, shrinkage = 0.1 and n.minobsinnode = 10.</code></pre>
+<pre><code># Stacked Model
+print(rf_stack)</code></pre>
+<pre><code>## Random Forest 
+## 
+## 1962 samples
+##   59 predictor
+## 
+## No pre-processing
+## Resampling: Bootstrapped (25 reps) 
+## Summary of sample sizes: 1962, 1962, 1962, 1962, 1962, 1962, ... 
+## Resampling results across tuning parameters:
+## 
+##   mtry  RMSE      Rsquared   RMSE SD    Rsquared SD
+##    2    4.522207  0.8188222  0.6747433  0.02436607 
+##   32    1.969346  0.9433001  0.3958873  0.01841072 
+##   63    1.860802  0.9474686  0.3939976  0.01740265 
+## 
+## RMSE was used to select the optimal model using  the smallest value.
+## The final value used for the model was mtry = 63.</code></pre>
+<pre><code>Each of the three models has above 97% accuracy. The stacked model has 99.99% accuracy on the training data!</code></pre>
+</div>
+
+<div id="examine-out-of-sample-error-estimate-for-each-model">
+<h3>
+<a id="examine-out-of-sample-error-estimate-for-each-model" class="anchor" href="#examine-out-of-sample-error-estimate-for-each-model" aria-hidden="true"><span class="octicon octicon-link"></span></a>Examine Out of Sample Error Estimate for Each Model</h3>
+<pre><code># Random Forest Model
+rf$finalModel</code></pre>
+<pre><code>## 
+## Call:
+##  randomForest(x = x, y = y, ntree = ..1, mtry = param$mtry, importance = TRUE) 
+##                Type of random forest: regression
+##                      Number of trees: 50
+## No. of variables tried at each split: 31
+## 
+##           Mean of squared residuals: 17.24217
+##                     % Var explained: 68.8</code></pre>
+<pre><code># Stacked Random Forest
+rf_stack$finalModel</code></pre>
+<pre><code>## 
+## Call:
+##  randomForest(x = x, y = y, ntree = ..1, mtry = param$mtry, importance = TRUE) 
+##                Type of random forest: regression
+##                      Number of trees: 50
+## No. of variables tried at each split: 63
+## 
+##           Mean of squared residuals: 2.583507
+##                     % Var explained: 95.32</code></pre>
+<pre><code>Stacked random forest model has 0% estimated out of sample error rate - incredible!</code></pre>
+<pre><code>Based on these results, we expect the stacked model to perform the best, but only marginally better given that all 3 models have accuracy above 97% on the training data.
+</code></pre>
+</div>
+
+<div id="results-on-20-test-cases">
+<h1>
+<a id="results-on-20-test-cases" class="anchor" href="#results-on-20-test-cases" aria-hidden="true"><span class="octicon octicon-link"></span></a>Results on 20 test cases</h1>
+<pre><code>The stacked model accurately predicted 20 out of 20 test cases - 100% accuracy! Machine learning is an incredible, amazing tool!</code></pre>
+</div>
+
+<p></p>
+</div>
+
+
+
+
+
+
+
+<p>
+</p>
+
+      <footer class="site-footer">
+        <span class="site-footer-owner"><a href="https://github.com/TenaciousTerrier/PML-Course-Project">Pml-course-project</a> is maintained by <a href="https://github.com/TenaciousTerrier">TenaciousTerrier</a>.</span>
+
+        <span class="site-footer-credits">This page was generated by <a href="https://pages.github.com">GitHub Pages</a> using the <a href="https://github.com/jasonlong/cayman-theme">Cayman theme</a> by <a href="https://twitter.com/jasonlong">Jason Long</a>.</span>
+      </footer>
+
+    </section>
+
+  
+  </body>
+</html>
